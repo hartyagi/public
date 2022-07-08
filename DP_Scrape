@@ -1,0 +1,329 @@
+
+
+import time
+import time as t
+import pandas as pd
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+# from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
+import tkinter as tk
+from tkinter import filedialog
+from termcolor import colored
+
+
+
+
+print((colored('''
+                            ____________________________
+                            |                          |
+                            |  Developed by hartyagi@  | 
+                            |                          | 
+                            |        Version 2.0       |
+                            |__________________________|
+''','cyan', attrs=['bold'])))
+
+
+
+
+
+user = os.getlogin()
+
+###################################################################
+### using a dialog box to fetch the input file
+###################################################################
+root = tk.Tk()
+root.withdraw()  # to hide root window
+root.filename = filedialog.askopenfilename(initialdir='C:\\Users\\' + user + '\\Desktop', title="Select the input file",
+                                           filetypes=(("Excel files", ".xlsx .xls"), ("all files", "'.'")))
+
+data = pd.read_excel(root.filename)
+
+# chromeOptions = webdriver.ChromeOptions()
+# path = Service("C:\drivers\chromedriver.exe")
+path = Service("C:\drivers\geckodriver-v0.31.0-win64\geckodriver.exe")
+
+###################################################################
+### storing all the marketpalce websites in a dictionary and asking the user to provide the intended marketplace as input
+###################################################################
+
+
+mar_list = {'US' : 'https://www.amazon.com','IN' : 'https://www.amazon.in', 'DE' : 'https://www.amazon.de',
+            'UK' : 'https://www.amazon.co.uk', 'IT' : 'https://www.amazon.it','FR' : 'https://www.amazon.fr',
+            'ES' : 'https://www.amazon.es'}
+print(mar_list.keys())
+
+mp = input("Please enter the keyword of the target Market Place here : ").upper()
+url= mar_list[mp]
+
+############################################################
+# setting up input file
+############################################################
+
+asin_list = data["ASIN"].to_numpy()
+print('total number of ASIN are :',len(asin_list))
+d={}
+fail=[]
+
+# browser = webdriver.Chrome(service = path)
+browser = webdriver.Firefox(service = path)
+
+
+#### manual login setup on user request starts
+browser.get(url)
+#
+# try:
+#     WebDriverWait(browser, 300).until(EC.url_to_be(url+"/?ref_=nav_custrec_signin&"))
+# except:
+#     print("Login time out, please relaunch the automation")
+#     time.sleep(30)
+
+
+input("Let me know when you want the scraping to start!  ")
+
+
+#### manual login setup on user request ends
+
+start_time = time.time()
+
+for i in asin_list:
+    bread_list = []
+    size_drp = []
+    size_drp1 = []
+    bullet_point=[]
+    bulls=[]
+
+    r = browser.get(url+'/dp/'+i+'?th=1&psc=1')
+
+    # Getting current URL source code
+    get_source = browser.page_source
+    # Text you want to search
+    search_asin = str(i)
+    # print True if text is present else False
+    print(search_asin in get_source)
+    if search_asin not in get_source:
+        fail.append(i)
+        d[i]='page does not exist','page does not exist','page does not exist','page does not exist','page does not exist',\
+             'page does not exist','page does not exist','page does not exist','page does not exist','page does not exist',\
+             'page does not exist','page does not exist','page does not exist','page does not exist'
+        print('asin ',i,' not available in this MK')
+        continue
+    else:
+        # t.sleep(1)
+        pass
+    print(r)
+    html_doc = browser.page_source
+    soup = BeautifulSoup(html_doc, 'lxml')
+## Fetching product title using BS4
+    title1 = soup.find(id="productTitle")
+    if title1:
+        title = soup.find(id='productTitle').text.strip()
+    else:
+        title = 'unable to find'
+    print('title',title)
+
+## Fetching browse Nodes using BS4
+    breads = soup.find_all(class_='a-link-normal a-color-tertiary')
+    if breads:
+        for bread in breads:
+            ab = bread.text.strip()
+            bread_list.append(ab)
+        final_bread_list = ' > '.join(bread_list)
+        print(final_bread_list)
+    else:
+        final_bread_list = 'NA'
+
+## Fetching the number of images on DP using BS4
+    number_images = soup.find_all(class_= "a-spacing-small item imageThumbnail a-declarative")
+    if number_images:
+        num_image = len(number_images)
+    else:
+        num_image ='Not available'
+    print('num_image',num_image)
+
+
+    try:
+        box = browser.find_element(By.XPATH,'//div[@id="centerCol"]')
+    except:
+        pass
+    # finding size chart and size chart link
+    try:
+        size_chart = box.find_element(By.XPATH,'.//*[@id="sizeChartV2Data_feature_div"]/span')
+        if size_chart:
+            size_chart_aval = "Available"
+            size_chart_link = "Link Available"
+        else:
+            size_chart_aval = "Not Available"
+            size_chart_link = "Link Not Available"
+
+        print('Size Chart :', size_chart_aval)
+        print('Size Chart Link :', size_chart_link)
+    except:
+        size_chart_aval = "Not Available"
+        size_chart_link = "Link Not Available"
+
+        print('Size Chart :', size_chart_aval)
+        print('Size Chart Link :', size_chart_link)
+
+#extracting size dropdown elements
+
+    try:
+        drop_downs_box = browser.find_element(By.ID, "inline-twister-expander-content-size_name")
+        if drop_downs_box:
+            drop_downs = drop_downs_box.find_elements(By.XPATH,'.//*[@id="tp-inline-twister-dim-values-container"]/ul//li//span[@class="a-size-base swatch-title-text-display swatch-title-text"]')
+            if drop_downs:
+                for value in drop_downs:
+                    size_drp1.append(value.text)
+                size_drp1.pop(0)  # excluding the first 'select' value
+                print(size_drp1)
+
+        else:
+            size_drp1 = "DropDown unavailable"
+            print(size_drp1)
+                # drop_downs_button = browser.find_element(By.ID, 'inline-twister-expander-header-size_name').click()
+    except:
+        size_drp1 = "DropDown unavailable"
+        print(size_drp1)
+    # WebDriverWait(browser, 5).until(EC.presence_of_element_located((By.ID, 'inline-twister-expander-header-size_name')))
+
+
+    #bullet points
+    try:
+        bullets2 = soup.find(class_='a-unordered-list a-vertical a-spacing-none').find_all("li")
+        bullets1 = soup.find(id='feature-bullets').find(class_='a-unordered-list a-vertical a-spacing-mini').find_all("li")
+        bullets = bullets1 + bullets2
+    except:
+        try:
+            bullets = soup.find(id='feature-bullets').find(class_='a-unordered-list a-vertical a-spacing-mini').find_all("li")
+        except:
+            bullets = ''
+    #bullets = soup.find(id='feature-bullets').find(class_='a-unordered-list a-vertical a-spacing-mini').find_all("li")
+    if bullets != '':
+        num_bullet = str(len(bullets))  #fetching number of bullet points
+        for bullet in bullets:
+            bul_pt = bullet.text.strip()
+            bull = str(bul_pt).lower()
+            bullet_point.append(bul_pt)
+            bulls.append(bull)
+        print(bullet_point)
+        #print(bulls)
+        bullers = str(bulls)
+
+        ## care instructions check
+        if 'machine wash' in bullers or 'care instructions' in bullers or 'care instruction' in bullers or 'hand wash' in bullers:
+            print('care instruction present')
+            c_inst = 'care instruction present'
+        else:
+            print('no care instruction')
+            c_inst = 'no care instruction'
+    else:
+        num_bullet = '0'
+        c_inst = 'no care instruction'
+        bullet_point = 'no bullet points'
+    descrption1 = soup.find(id='productDescription')
+    if descrption1:
+        descrption = soup.find(id='productDescription').text.strip()
+    else:
+        descrption = 'Descrption not avialable'
+    print(descrption)
+
+    aplus = soup.find(id='aplus')
+    if aplus:
+        print('Aplus Available')
+        aplus_aval = 'Aplus Available'
+    else:
+        print('Aplus Not Available')
+        aplus_aval = 'Aplus Not Available'
+
+    # finding sizechart title
+
+    try:
+        box.find_element(By.XPATH, './/*[@id="sizeChartV2Data_feature_div"]/span/a/i').click()
+        WebDriverWait(browser, 5).until(EC.presence_of_element_located((By.CLASS_NAME,"a-popover-header-content")))
+        # t.sleep(2)
+        size_chart_title = browser.find_element(By.CLASS_NAME,"a-popover-header-content").text
+
+        if size_chart_title:
+            generic_size_chart = size_chart_title
+        else:
+            generic_size_chart = "Size chart title unavailable"
+
+        print('Size Chart Title :', generic_size_chart)
+
+    except:
+
+        generic_size_chart = "Size chart title unavailable"
+        print('Size Chart Title :', generic_size_chart)
+
+
+
+    # finding buyline
+
+    try:
+        buy_line = browser.find_element(By.ID, 'bylineInfo')
+        if buy_line:
+            B_line = "Buyline Available"
+        else:
+            B_line = "Buyline Not Available"
+    except:
+        B_line = "Buyline Not Available"
+    print('Buyline :', B_line)
+
+    # finding buybox
+
+    try:
+        buy_line = browser.find_element(By.ID, 'bylineInfo')
+        if buy_line:
+            B_line = "Buyline Available"
+        else:
+            B_line = "Buyline Not Available"
+    except:
+        B_line = "Buyline Not Available"
+    print('Buyline :', B_line)
+
+    # checking buybility
+
+    try:
+        BB = (browser.find_element(By.XPATH, '//input[@id="add-to-cart-button"]') or browser.find_element(By.XPATH, '//input[@id="buy-now-button"]'))
+
+        if BB:
+            BB_check = "BB Available"
+        else:
+            BB_check = "BB Not Available"
+    except:
+        BB_check = "BB Not Available"
+    print('BB :', BB_check)
+
+
+
+
+    ######################################################################################
+    # exporting data frame to an output file
+    ######################################################################################
+
+    d[i]= title , final_bread_list ,num_image ,size_chart_aval,size_chart_link ,size_drp1 ,generic_size_chart ,bullet_point ,num_bullet , c_inst , descrption , aplus_aval , B_line, BB_check
+final_dp = pd.DataFrame(d).transpose().reset_index().rename(columns={'index':'ASIN',0:'Title',1:'Browse_node',2:'Number of Images',3:'Size Chart',4:'SizeChart link',5:'Size Dropdown',6:'Brand Size chart Title ',7:'Bullet Point',8:'Number of bullet points',9:'Care instruction',10:'Description',11:'A Plus availability',12:'BuyLine',13:'Buybility'})
+
+browser.quit()
+
+# # exporting the final data to output sheet
+final_dp.to_excel('C:\\Users\\' + user + '\\Desktop\\DP_Scrape_output.xlsx', index=False)
+print('Output file has been exported to desktop')
+
+##timing the script
+end_time = time.time()
+print('''
+
+
+The script took''', f"{end_time - start_time:.3f}", "seconds to complete the scraping!")
+
+print(colored('''
+
+Task Completed!''','green'))
+
+
+t.sleep(30)
